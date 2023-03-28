@@ -1,0 +1,214 @@
+---
+title: "水資源efa_cfa"
+author: "陳映均"
+date: "2021-05-27"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, cache=TRUE,
+                      autodep=TRUE, cache.comments=FALSE,
+                      message=FALSE, warning=FALSE)
+```
+
+
+## Structural Equation Modelling
+
+```{r install.packages}
+#install.packages("tidySEM")
+#install.packages("lavaan")
+#install.packages("dplyr")
+library(tidySEM); library(lavaan); library(dplyr); library(ggplot2)
+library(psych) # for parallel analysis
+
+```
+
+```{r input data}
+getwd()
+#setwd("C:/Users/USER/Desktop/統計實務")
+data <- read.csv("C:/Users/映均/水資源資料/water_連續資料.csv", header=TRUE, fileEncoding = "UTF-8-BOM")
+View(data)
+library(car)
+fa1 <- subset(data, select = c(Attitude_1:Attitude_9))
+fa2 <- subset(data, select = c(Behavior_1:Behavior_8))
+anyNA(fa1)
+anyNA(fa2)
+#fa1$Attitude_4 <- car::recode(fa1$Attitude_4,'1=5;2=4;3=3;4=2;5=1')
+```
+
+```{r efa.PD}
+# parallel analysis
+fa.parallel(fa1, fa = "fa", fm = "ml")
+# 雖然系統是建議3個，但因為發現跟原本參考論文內的內涵分類對不上
+# 所以參考了網路上的資料:https://dasanlin888.pixnet.net/blog/post/34468118
+# 問卷的構面當初擬定為六個，所以限定因素分析萃取的構面為五個
+# 再重跑一次因素分析看看
+fa1.efa <- fa(fa1, nfactors = 5, rotate = "Promax",
+             residuals = TRUE, SMC = TRUE, fm = "pa")
+fa1.efa$loadings
+# 五個因素構面的累積變異數量只有0.427，因此我們決定使用原論文的分類方式
+fa.diagram(fa1.efa) 
+```
+
+```{r cfa.mardia}
+mardia(fa1) # 應該不服從常態分配
+```
+
+
+```{r cfa.WS}
+# 照論文內涵分類的模型
+WS.model <- ' interest  =~ Attitude_1
+              interest2  =~ Attitude_2
+              interest3 =~ Attitude_3
+              values    =~ Attitude_4
+              values1   =~ Attitude_5 + Attitude_6
+              values2   =~ Attitude_7 + Attitude_8 + Attitude_9
+'
+WS.cfa1 <- cfa(WS.model1, data = fa1,
+              estimator = "WLSMV")      
+fitMeasures(WS.cfa1,
+            fit.measures = c("chisq", "df", "pvalue",
+                             "cfi", "tli", "rmsea", 
+                             "rmsea.pvalue", "srmr"))  
+# RMSEA:0.000  模型很好
+# -value RMSEA <= 0.05   0.931  接受RMSEA<=0.05
+# CFI:1.000  模型很好
+# TLI:1.001模型很好
+# interest 原論文命名對循環系統關注程度
+# interest2 原論文命名對質與量議題的關注程度
+# interest3 原論文命名對相關議題永續利用的關注程度
+# values 原論文命名對相關經濟議題的觀點
+# values1 原論文命名對循環系統的觀點
+# values2 原論文命名個人外控觀點
+
+```
+
+```{r cfa.ci}
+#data$性別 <- car::recode(data$性別,"'男'='0';'女'='1'")
+#View(data)
+WS.cfa.ci <- cfa(WS.model1, data = data,
+              estimator = "WLSMV",
+              group = "性別")
+fitMeasures(WS.cfa.ci,
+            fit.measures = c("chisq", "df", "pvalue",
+                             "cfi", "tli", "rmsea", 
+                             "rmsea.pvalue", "srmr"))
+summary(WS.cfa.ci, fit.measures = TRUE,
+        standardized = TRUE)
+# RMSEA:0.000模型很好
+# -value RMSEA <= 0.05   0.971  接受RMSEA<=0.05
+# CFI: 1.000  模型很好
+# TLI:1.055模型很好
+```
+```{r cfa.allequal}
+
+WS.cfa.allequal <- cfa(WS.model1, data = data,
+              estimator = "WLSMV",
+              group = "性別",
+              group.equal = c("loadings", "intercepts", "residuals",
+"lv.variances", "lv.covariances"))
+fitMeasures(WS.cfa.allequal,
+            fit.measures = c("chisq", "df", "pvalue",
+                             "cfi", "tli", "rmsea", 
+                             "rmsea.pvalue", "srmr"))
+summary(WS.cfa.allequal, fit.measures = TRUE,
+        standardized = TRUE)
+
+# RMSEA:0.068  模型還好
+# -value RMSEA <= 0.05   0.087   接受RMSEA<=0.05
+# CFI:0.816 模型還好
+# TLI:0.793  模型還好
+anova(WS.cfa.allequal, WS.cfa.ci) 
+# 卡方 0.003404 **< 0.05，表示構造恆等性不成立。
+```
+
+
+
+
+```{r cfa.WS}
+WS.model3 <- ' behavior =~ Behavior_1 + Behavior_2 + Behavior_3 + Behavior_4      
+              attempt =~  Behavior_5 + Behavior_6 + Behavior_7 + Behavior_8'
+
+WS.cfa3 <- cfa(WS.model3, data = fa2,
+              estimator = "WLSMV")
+
+summary(WS.cfa3, fit.measures = TRUE,standardized = TRUE) 
+fitMeasures(WS.cfa3,
+            fit.measures = c("chisq", "df", "pvalue",
+                             "cfi", "tli", "rmsea", 
+                             "rmsea.pvalue", "srmr"))
+# RMSEA:0.000 模型很好
+# -value RMSEA <= 0.05   1.000  接受RMSEA<=0.05
+# CFI:1.000 模型很好
+# TLI:1.021  模型很好
+graph_sem(WS.cfa3)
+lay2 <- get_layout("", "attempt", "", "", "", "", "behavior", "",
+                   "", "", "", "", "", "","", "",
+                   "Behavior_5", "Behavior_6", "Behavior_7", "Behavior_8", "Behavior_1", "Behavior_2","Behavior_3","Behavior_4",  
+                   rows = 3)
+graph_sem(WS.cfa3, layout = lay2)
+## 模型沒問題，全部都顯著
+# behavior 命名:與水資源及相關公共建設議題相關之行為 
+# attempt 命名:對水資源與相關公共建設議題採取環境行動之意圖
+
+```
+
+```{r cfa2.ci}
+WS.cfa2.ci <- cfa(WS.model3, data = data,
+              estimator = "WLSMV",
+              group = "性別")   
+summary(WS.cfa2.ci, fit.measures = TRUE,standardized = TRUE)
+
+fitMeasures(WS.cfa2.ci,
+            fit.measures = c("chisq", "df", "pvalue",
+                             "cfi", "tli", "rmsea", 
+                             "rmsea.pvalue", "srmr"))
+# RMSEA:0.000 模型很好
+# -value RMSEA <= 0.05   1.000  接受RMSEA<=0.05
+# CFI:1.000 模型很好
+# TLI:1.021  模型很好
+lay2 <- get_layout("", "attempt", "", "", "", "", "behavior", "",
+                   "", "", "", "", "", "","", "",
+                   "Behavior_5", "Behavior_6", "Behavior_7", "Behavior_8", "Behavior_1", "Behavior_2","Behavior_3","Behavior_4",  
+                   rows = 3)
+graph_sem(WS.cfa2.ci, layout = lay2)
+# RMSEA:0.000 模型很好
+# -value RMSEA <= 0.05   1.0000 接受RMSEA<=0.05
+# CFI:1.000 模型還好
+# TLI:1.040 模型還好
+
+```
+```{r cfa.allequal}
+
+WS.cfa2.allequal <- cfa(WS.model3, data = data,
+              estimator = "WLSMV",
+              group = "性別",
+              group.equal = c("loadings", "intercepts", "residuals",
+"lv.variances", "lv.covariances"))
+fitMeasures(WS.cfa2.allequal,
+            fit.measures = c("chisq", "df", "pvalue",
+                             "cfi", "tli", "rmsea", 
+                             "rmsea.pvalue", "srmr"))
+summary(WS.cfa2.allequal, fit.measures = TRUE,
+        standardized = TRUE)
+lay2 <- get_layout("", "attempt", "", "", "", "", "behavior", "",
+                   "", "", "", "", "", "","", "",
+                   "Behavior_5", "Behavior_6", "Behavior_7", "Behavior_8", "Behavior_1", "Behavior_2","Behavior_3","Behavior_4",  
+                   rows = 3)
+#graph_sem(WS.cfa2.allequal, layout = lay2)
+ggsave("WS.cfa2.allequal.png",  # 檔案名稱
+       plot = graph_sem(WS.cfa2.allequal,layout =lay2),   #圖片變數，如果沒有指定預設會儲存最後一張畫出來的圖
+       path = "C:/Users/映均/水資源資料", # 檔案路徑，不包含檔名
+       width = 21, # 圖片寬度
+       height = 9, # 圖片長度
+       dpi = 300) # dpi
+# RMSEA:0.071 模型還好
+# -value RMSEA <= 0.05   0.061   接受RMSEA<=0.05
+# CFI:0.934 模型很好
+# TLI:0.940 模型很好
+anova(WS.cfa2.allequal, WS.cfa2.ci) 
+# 卡方0.01861 **< 0.05，表示構造恆等性不成立。
+```
+
+
+
