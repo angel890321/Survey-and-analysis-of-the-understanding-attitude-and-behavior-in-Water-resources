@@ -41,5 +41,11 @@
 
 9. 驗證性因素分析(Confirmatory Factor Analysis, CFA)
     經過探索性因素分析(Exploratory Factor Analysis, EFA)後，再進行驗證性因素分析(Confirmatory Factor Analysis, CFA)，以驗證問題的題向是否有合理的被分在預期的構面裡。
+    
+#### 4.參考文獻
+
+1. 江冠汝(2019),台北市用水人水素養調查(碩士論文)。國立臺灣師範大學環境教育研究所
+
+2. 鄭毓君(2011),我國民眾對水資源與相關公共建設議題之知識、態度與行為意向調查分析,臺灣師範大學環境教育研究所
 
 
